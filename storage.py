@@ -45,7 +45,19 @@ class Storage:
         return data["users"].get(username, {}).get("tasks", [])
 
     def save_task(self, username, task):
-        """Save a new or updated task for a user."""
+        """Save a new or updated task for a user, ensuring required fields."""
+        # Ensure task has required fields with defaults if missing
+        task = {
+            "id": task.get("id"),
+            "title": task.get("title", "Untitled"),
+            "type": task.get("type", "one-time"),
+            "time": task.get("time", "23:59"),
+            "completions": task.get("completions", []),
+            **{k: v for k, v in task.items() if k in ["date", "days"]}  # Preserve optional fields
+        }
+        if not task["id"] or not task["title"]:
+            raise ValueError("Task must have an 'id' and 'title'.")
+        
         data = self.load_data(TASKS_FILE)
         if username not in data["users"]:
             data["users"][username] = {"chat_id": None, "tasks": []}
@@ -72,6 +84,8 @@ class Storage:
                 data["users"][username]["tasks"] = tasks
                 self.save_data(TASKS_FILE, data)
                 self.log_history(task_to_delete, "deleted", username)
+            else:
+                raise ValueError("Task not found.")
 
     def get_all_users(self):
         """Return a list of all usernames."""
