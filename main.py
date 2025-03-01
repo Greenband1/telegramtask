@@ -64,8 +64,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     task_with_owner = task.copy()
                     task_with_owner["owner"] = user
                     task_type = task.get("type", "daily")
-                    if task_type == "daily" or (task_type == "recurring" and weekday in task.get("days", [])) or \
-                       (task_type == "one-time" and task.get("date") and datetime.strptime(task.get("date"), "%Y-%m-%d").date() <= today):
+                    if task_type == "daily" or \
+                       (task_type == "recurring" and weekday in task.get("days", [])) or \
+                       (task_type == "one-time" and task.get("date") and 
+                        (len(task.get("completions", [])) == 0 or today_str in task.get("completions", []))):
                         tasks.append(task_with_owner)
             message, keyboard = ui.all_tasks_message_and_keyboard(tasks)
             await query.edit_message_text(message, reply_markup=keyboard)
@@ -107,22 +109,27 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             user_states.pop(chat_id)
             await query.edit_message_text(f"Task added (ID: {task_id})!", reply_markup=ui.main_menu())
         elif data.startswith("toggle_"):
-            index = int(data.split("_")[1])
+            task_id = data.split("_")[1]  # Extract task ID instead of index
             today = date.today()
             today_str = today.isoformat()
             weekday = today.strftime("%a")
             tasks = []
+            task_map = {}  # Map task IDs to their positions for lookup
             for user in storage.get_all_users():
                 user_tasks = task_mgr.get_user_tasks(user, mine=False)  # Fetch all tasks
                 for task in user_tasks:
                     task_with_owner = task.copy()
                     task_with_owner["owner"] = user
                     task_type = task.get("type", "daily")
-                    if task_type == "daily" or (task_type == "recurring" and weekday in task.get("days", [])) or \
-                       (task_type == "one-time" and task.get("date") and datetime.strptime(task.get("date"), "%Y-%m-%d").date() <= today):
+                    if task_type == "daily" or \
+                       (task_type == "recurring" and weekday in task.get("days", [])) or \
+                       (task_type == "one-time" and task.get("date") and 
+                        (len(task.get("completions", [])) == 0 or today_str in task.get("completions", []))):
                         tasks.append(task_with_owner)
-            if 0 <= index < len(tasks):
-                task = tasks[index]
+                        task_map[task["id"]] = task_with_owner  # Store task by ID
+
+            if task_id in task_map:
+                task = task_map[task_id]
                 if today_str in task["completions"]:
                     task["completions"].remove(today_str)
                     status = "incomplete"
@@ -142,8 +149,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         task_with_owner = task.copy()
                         task_with_owner["owner"] = user
                         task_type = task.get("type", "daily")
-                        if task_type == "daily" or (task_type == "recurring" and weekday in task.get("days", [])) or \
-                           (task_type == "one-time" and task.get("date") and datetime.strptime(task.get("date"), "%Y-%m-%d").date() <= today):
+                        if task_type == "daily" or \
+                           (task_type == "recurring" and weekday in task.get("days", [])) or \
+                           (task_type == "one-time" and task.get("date") and 
+                            (len(task.get("completions", [])) == 0 or today_str in task.get("completions", []))):
                             tasks.append(task_with_owner)
                 message, keyboard = ui.all_tasks_message_and_keyboard(tasks)
                 await query.edit_message_text(message, reply_markup=keyboard)

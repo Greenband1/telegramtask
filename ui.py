@@ -2,7 +2,7 @@
 File: ui.py
 Purpose: Generates inline keyboards and messages for the Family Task Bot.
 Dependencies: python-telegram-bot>=21.0
-Last Modified: 2025-02-26
+Last Modified: 2025-02-28
 """
 
 from datetime import datetime
@@ -161,7 +161,7 @@ class UI:
             today = datetime.now().date()
             today_str = today.isoformat()
             weekday = today.strftime("%a")
-            message = "Click a number to toggle task status:\n\nAll Tasks:\n"
+            message = "Click a number to toggle task status:\n"
             task_index = 1
             task_mapping = []
             for user in sorted(set(task["owner"] for task in tasks)):
@@ -188,12 +188,12 @@ class UI:
                         else:  # daily
                             extra = "[Daily]"
                         message += f"{task_index}. {task['title']} {status} {extra}\n"
-                        task_mapping.append(task)
+                        task_mapping.append((task["id"], task))  # Store task ID and task
                         task_index += 1
             
             buttons = [
-                InlineKeyboardButton(str(i + 1), callback_data=f"toggle_{i}")
-                for i in range(len(task_mapping))
+                InlineKeyboardButton(str(i + 1), callback_data=f"toggle_{task_id}")
+                for i, (task_id, _) in enumerate(task_mapping)
             ]
             keyboard = [buttons[i:i+5] for i in range(0, len(buttons), 5)]
             keyboard.append([InlineKeyboardButton("Back to Main Menu", callback_data="back")])

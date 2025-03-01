@@ -23,9 +23,8 @@ class TaskManager:
         
         task_type = task["type"]
         if task_type == "one-time":
-            # Include all one-time tasks that are not completed today
-            today_str = datetime.strptime(today, "%Y-%m-%d").date().isoformat()
-            return today_str not in task.get("completions", [])
+            # Include only if not completed (no completion dates)
+            return len(task.get("completions", [])) == 0
         elif task_type == "daily":
             needs_action = today not in task.get("completions", [])
         elif task_type == "recurring":
