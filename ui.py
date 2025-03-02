@@ -2,7 +2,7 @@
 File: ui.py
 Purpose: Generates inline keyboards and messages for the Family Task Bot.
 Dependencies: python-telegram-bot>=21.0
-Last Modified: 2025-02-28
+Last Modified: 2025-03-01
 """
 
 from datetime import datetime
@@ -23,16 +23,25 @@ class UI:
         self.days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         self.history_page_size = 10  # Number of history entries per page
 
-    def main_menu(self):
-        """Generate the main menu keyboard with 'View All Tasks' option."""
+    def main_menu(self, users=None):
+        """Generate the main menu keyboard with user-specific buttons, without Add Task."""
+        if users is None:
+            users = []
         buttons = [
-            [InlineKeyboardButton("Add Task", callback_data="add_task")],
-            [InlineKeyboardButton("View My Tasks", callback_data="view_my"),
+            [InlineKeyboardButton("My Tasks", callback_data="view_my"),
              InlineKeyboardButton("View Others", callback_data="view_others")],
-            [InlineKeyboardButton("View All Tasks", callback_data="view_all")],
+            [InlineKeyboardButton("All Tasks", callback_data="view_all")],
             [InlineKeyboardButton("Users", callback_data="users"),
-             InlineKeyboardButton("View History", callback_data="history_0")]
+             InlineKeyboardButton("History", callback_data="history_0")],
         ]
+        # Add buttons for the first 4 users, sorted alphabetically
+        user_buttons = [
+            InlineKeyboardButton(f"@{user}", callback_data=f"view_user_tasks_{user}")
+            for user in sorted(users)[:4]
+        ]
+        # Arrange user buttons in rows of three
+        for i in range(0, len(user_buttons), 3):
+            buttons.append(user_buttons[i:i+3])
         return InlineKeyboardMarkup(buttons)
 
     def task_types(self):
@@ -112,8 +121,8 @@ class UI:
         return InlineKeyboardMarkup(buttons)
 
     def task_list(self, tasks, prefix, username=None):
-        """Generate a list of tasks with buttons, showing type and due date/days."""
-        if not tasks:
+        """Generate a list of tasks with buttons, showing type and due date/days, with Add Task for own tasks."""
+        if not tasks and username:  # If viewing someone else's tasks with no tasks, no Add Task button
             return None
         buttons = []
         today = datetime.now().date()
@@ -138,6 +147,9 @@ class UI:
             if username:
                 label += f" (@{username})"
             buttons.append([InlineKeyboardButton(label, callback_data=f"{prefix}_{task['id']}")])
+        # Add "Add Task" button only for own tasks (when username is None)
+        if not username:
+            buttons.append([InlineKeyboardButton("Add Task", callback_data="add_task")])
         buttons.append([InlineKeyboardButton("Back to Main Menu", callback_data="back")])
         return InlineKeyboardMarkup(buttons)
 
@@ -152,10 +164,10 @@ class UI:
         buttons.append([InlineKeyboardButton("Back to Main Menu", callback_data="back")])
         return InlineKeyboardMarkup(buttons)
 
-    def all_tasks_message_and_keyboard(self, tasks):
+    def all_tasks_message_and_keyboard(self, tasks, username=None):
         """Generate message and keyboard for all tasks with number toggle buttons."""
         if not tasks:
-            message = "No tasks found!"
+            message = f"No tasks due today for @{username}!" if username else "No tasks found!"
             keyboard = [[InlineKeyboardButton("Back to Main Menu", callback_data="back")]]
         else:
             today = datetime.now().date()
@@ -164,12 +176,12 @@ class UI:
             message = "Click a number to toggle task status:\n"
             task_index = 1
             task_mapping = []
-            for user in sorted(set(task["owner"] for task in tasks)):
-                user_tasks = [t for t in tasks if t["owner"] == user]
+            for user in sorted(set(task.get("owner", username) for task in tasks if "owner" in task or username)):  # Use username as fallback
+                user_tasks = [t for t in tasks if t.get("owner", username) == user]
                 if user_tasks:
                     message += f"\n**{user}'s Tasks**\n"
                     for task in user_tasks:
-                        status = "✅" if today_str in task.get("completions", []) else "❌"
+                        status = "✅" if today_str in task.get("completions", []) else "❌"  # Check completions for status
                         task_type = task.get("type", "daily")
                         if task_type == "one-time":
                             due_date_str = task.get("date", "No date")
